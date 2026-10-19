@@ -49,16 +49,32 @@ def make_command(text="jdoe", channel_id=TRUSTED_CHANNEL, user_name="alice"):
     return {"channel_id": channel_id, "text": text, "user_name": user_name}
 
 
+def capturing_respond():
+    """Return (responses, respond): respond(text, **kwargs) records (text, kwargs).
+
+    Stands in for slack-bolt's real respond(), which now passes
+    response_type as a keyword argument on the calls this proposal
+    changes -- plain list.append can't accept that.
+    """
+    responses = []
+
+    def respond(text, **kwargs):
+        responses.append((text, kwargs))
+
+    return responses, respond
+
+
 def test_successful_grant(context):
     client = MagicMock()
     client.add_user_to_groups.return_value = ["jira-users", "jira-trunk-developer", "confluence-users"]
     keycloak_integration.set_client(client)
 
-    responses = []
-    _handle_trust(make_command(), context, responses.append)
+    responses, respond = capturing_respond()
+    _handle_trust(make_command(), context, respond)
 
     assert len(responses) == 1
-    assert "granted" in responses[0]
+    assert "granted" in responses[0][0]
+    assert responses[0][1].get("response_type") == "in_channel"
 
     row = context.audit_conn.execute(
         "SELECT openmrs_id, trigger, trigger_src, action, status FROM audit_log"
@@ -71,10 +87,11 @@ def test_no_op_grant_when_already_trusted(context):
     client.add_user_to_groups.return_value = []
     keycloak_integration.set_client(client)
 
-    responses = []
-    _handle_trust(make_command(), context, responses.append)
+    responses, respond = capturing_respond()
+    _handle_trust(make_command(), context, respond)
 
-    assert "already trusted" in responses[0]
+    assert "already trusted" in responses[0][0]
+    assert responses[0][1].get("response_type") == "in_channel"
 
     status = context.audit_conn.execute("SELECT status FROM audit_log").fetchone()[0]
     assert status == "no_change"
@@ -85,11 +102,12 @@ def test_unknown_openmrs_id(context):
     client.add_user_to_groups.side_effect = UserNotFoundError("ghost")
     keycloak_integration.set_client(client)
 
-    responses = []
-    _handle_trust(make_command(text="ghost"), context, responses.append)
+    responses, respond = capturing_respond()
+    _handle_trust(make_command(text="ghost"), context, respond)
 
-    assert "Could not grant access" in responses[0]
-    assert "ghost" in responses[0]
+    assert "Could not grant access" in responses[0][0]
+    assert "ghost" in responses[0][0]
+    assert responses[0][1].get("response_type") == "in_channel"
 
     status = context.audit_conn.execute("SELECT status FROM audit_log").fetchone()[0]
     assert status == "failure"
@@ -99,8 +117,8 @@ def test_wrong_channel_produces_no_response_and_no_audit_row(context):
     client = MagicMock()
     keycloak_integration.set_client(client)
 
-    responses = []
-    _handle_trust(make_command(channel_id="C_UNAUTHORIZED"), context, responses.append)
+    responses, respond = capturing_respond()
+    _handle_trust(make_command(channel_id="C_UNAUTHORIZED"), context, respond)
 
     assert responses == []
     client.add_user_to_groups.assert_not_called()
@@ -112,12 +130,13 @@ def test_dry_run_simulates_grant_without_mutating_keycloak(dry_run_context):
     client.add_user_to_groups.return_value = ["jira-users", "jira-trunk-developer", "confluence-users"]
     keycloak_integration.set_client(client)
 
-    responses = []
-    _handle_trust(make_command(), dry_run_context, responses.append)
+    responses, respond = capturing_respond()
+    _handle_trust(make_command(), dry_run_context, respond)
 
     assert len(responses) == 1
-    assert "DRY RUN" in responses[0]
-    assert "No change was made" in responses[0]
+    assert "DRY RUN" in responses[0][0]
+    assert "No change was made" in responses[0][0]
+    assert responses[0][1].get("response_type") == "in_channel"
 
     row = dry_run_context.audit_conn.execute(
         "SELECT status FROM audit_log"
@@ -126,6 +145,23 @@ def test_dry_run_simulates_grant_without_mutating_keycloak(dry_run_context):
     client.add_user_to_groups.assert_called_once_with(
         "jdoe", ["jira-users", "jira-trunk-developer", "confluence-users"], dry_run=True
     )
+
+
+def test_no_rule_configured_response_is_in_channel(context, tmp_path, monkeypatch):
+    empty_rules = tmp_path / "empty_rules.yaml"
+    empty_rules.write_text("rules: []\n")
+    monkeypatch.setenv("RULES_PATH", str(empty_rules))
+
+    client = MagicMock()
+    keycloak_integration.set_client(client)
+
+    responses, respond = capturing_respond()
+    _handle_trust(make_command(), context, respond)
+
+    assert len(responses) == 1
+    assert "No rule is configured" in responses[0][0]
+    assert responses[0][1].get("response_type") == "in_channel"
+    client.add_user_to_groups.assert_not_called()
 
 
 def test_wrong_channel_logs_warning(context, caplog):

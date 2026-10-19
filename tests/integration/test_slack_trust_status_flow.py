@@ -51,6 +51,21 @@ def seed_audit_row(conn, openmrs_id="jdoe"):
     )
 
 
+def capturing_respond():
+    """Return (responses, respond): respond(text, **kwargs) records (text, kwargs).
+
+    Stands in for slack-bolt's real respond(), which now passes
+    response_type as a keyword argument on the calls this proposal
+    changes -- plain list.append can't accept that.
+    """
+    responses = []
+
+    def respond(text, **kwargs):
+        responses.append((text, kwargs))
+
+    return responses, respond
+
+
 def test_full_success(context):
     seed_audit_row(context.audit_conn)
     row_count_before = context.audit_conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
@@ -63,14 +78,15 @@ def test_full_success(context):
     discourse_client.get_trust_level.return_value = 2
     discourse_integration.set_client(discourse_client)
 
-    responses = []
-    _handle_trust_status(make_command(), context, responses.append)
+    responses, respond = capturing_respond()
+    _handle_trust_status(make_command(), context, respond)
 
     assert len(responses) == 1
-    response = responses[0]
+    response, kwargs = responses[0]
     assert "jira-users" in response
     assert "Discourse trust level: 2" in response
     assert "keycloak_add_groups" in response
+    assert kwargs.get("response_type") == "in_channel"
 
     # /trust-status must not write to the audit log itself (per design.md).
     row_count_after = context.audit_conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
@@ -88,10 +104,10 @@ def test_discourse_unavailable_but_keycloak_and_audit_ok(context):
     discourse_client.get_trust_level.side_effect = RuntimeError("connection refused")
     discourse_integration.set_client(discourse_client)
 
-    responses = []
-    _handle_trust_status(make_command(), context, responses.append)
+    responses, respond = capturing_respond()
+    _handle_trust_status(make_command(), context, respond)
 
-    response = responses[0]
+    response, _ = responses[0]
     assert "jira-users" in response
     assert "Discourse trust level: unavailable" in response
     assert "keycloak_add_groups" in response
@@ -108,10 +124,10 @@ def test_keycloak_connectivity_failure_but_discourse_and_audit_ok(context):
     discourse_client.get_trust_level.return_value = 3
     discourse_integration.set_client(discourse_client)
 
-    responses = []
-    _handle_trust_status(make_command(), context, responses.append)
+    responses, respond = capturing_respond()
+    _handle_trust_status(make_command(), context, respond)
 
-    response = responses[0]
+    response, _ = responses[0]
     assert "Keycloak groups: unavailable" in response
     assert "Discourse trust level: 3" in response
     assert "keycloak_add_groups" in response
@@ -125,12 +141,14 @@ def test_unknown_openmrs_id_short_circuits_before_discourse_and_audit(context):
     discourse_client = MagicMock()
     discourse_integration.set_client(discourse_client)
 
-    responses = []
-    _handle_trust_status(make_command(text="ghost"), context, responses.append)
+    responses, respond = capturing_respond()
+    _handle_trust_status(make_command(text="ghost"), context, respond)
 
     assert len(responses) == 1
-    assert "not found" in responses[0]
-    assert "ghost" in responses[0]
+    response, kwargs = responses[0]
+    assert "not found" in response
+    assert "ghost" in response
+    assert kwargs.get("response_type") == "in_channel"
     discourse_client.get_trust_level.assert_not_called()
 
 
@@ -140,8 +158,8 @@ def test_wrong_channel_produces_no_response(context):
     discourse_client = MagicMock()
     discourse_integration.set_client(discourse_client)
 
-    responses = []
-    _handle_trust_status(make_command(channel_id="C_UNAUTHORIZED"), context, responses.append)
+    responses, respond = capturing_respond()
+    _handle_trust_status(make_command(channel_id="C_UNAUTHORIZED"), context, respond)
 
     assert responses == []
     keycloak_client.get_user_groups.assert_not_called()
@@ -160,7 +178,7 @@ def test_full_success_logs_outcome_at_info(context, caplog):
     discourse_integration.set_client(discourse_client)
 
     with caplog.at_level("INFO"):
-        _handle_trust_status(make_command(), context, lambda *_: None)
+        _handle_trust_status(make_command(), context, lambda *_, **__: None)
 
         info_records = [r for r in caplog.records if r.levelname == "INFO"]
         assert len(info_records) == 1
@@ -182,7 +200,7 @@ def test_degraded_section_logs_outcome_at_info(context, caplog):
     discourse_integration.set_client(discourse_client)
 
     with caplog.at_level("INFO"):
-        _handle_trust_status(make_command(), context, lambda *_: None)
+        _handle_trust_status(make_command(), context, lambda *_, **__: None)
 
         info_records = [r for r in caplog.records if r.levelname == "INFO"]
         assert len(info_records) == 1

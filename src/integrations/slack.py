@@ -124,7 +124,10 @@ def _handle_trust(command: dict, context: SlackContext, respond) -> None:
     matched_rules = evaluator.evaluate(rule_set, event)
 
     if not matched_rules:
-        respond(f"No rule is configured to handle `/trust` for `{event.openmrs_id}`.")
+        respond(
+            f"No rule is configured to handle `/trust` for `{event.openmrs_id}`.",
+            response_type="in_channel",
+        )
         return
 
     outcomes: list[ActionResult] = []
@@ -133,7 +136,7 @@ def _handle_trust(command: dict, context: SlackContext, respond) -> None:
             evaluator.execute_rule(rule, event, conn=context.audit_conn, dry_run=context.dry_run)
         )
 
-    respond(_format_response(event.openmrs_id, outcomes))
+    respond(_format_response(event.openmrs_id, outcomes), response_type="in_channel")
 
 
 def _format_response(openmrs_id: str, outcomes: Sequence[ActionResult]) -> str:
@@ -168,7 +171,10 @@ def _handle_revoke(command: dict, context: SlackContext, respond) -> None:
     matched_rules = evaluator.evaluate(rule_set, event)
 
     if not matched_rules:
-        respond(f"No rule is configured to handle `/trust-revoke` for `{event.openmrs_id}`.")
+        respond(
+            f"No rule is configured to handle `/trust-revoke` for `{event.openmrs_id}`.",
+            response_type="in_channel",
+        )
         return
 
     outcomes: list[ActionResult] = []
@@ -177,7 +183,7 @@ def _handle_revoke(command: dict, context: SlackContext, respond) -> None:
             evaluator.execute_rule(rule, event, conn=context.audit_conn, dry_run=context.dry_run)
         )
 
-    respond(_format_revoke_response(event.openmrs_id, outcomes))
+    respond(_format_revoke_response(event.openmrs_id, outcomes), response_type="in_channel")
 
 
 def _format_revoke_response(openmrs_id: str, outcomes: Sequence[ActionResult]) -> str:
@@ -217,7 +223,7 @@ def _handle_trust_status(command: dict, context: SlackContext, respond) -> None:
         groups = keycloak_integration.get_client().get_user_groups(openmrs_id)
         groups_error = None
     except UserNotFoundError:
-        respond(f"`{openmrs_id}` was not found in Keycloak.")
+        respond(f"`{openmrs_id}` was not found in Keycloak.", response_type="in_channel")
         return
     except Exception as exc:  # noqa: BLE001 - degrade this section, see design.md
         groups = None
@@ -266,7 +272,8 @@ def _handle_trust_status(command: dict, context: SlackContext, respond) -> None:
             trust_level_error=trust_level_error,
             recent_events=recent_events,
             events_error=events_error,
-        )
+        ),
+        response_type="in_channel",
     )
 
 
