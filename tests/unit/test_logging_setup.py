@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 import pytest
 
@@ -29,6 +30,18 @@ def test_configure_logging_emits_valid_json_with_expected_keys(capsys):
     assert record["logger"] == "test.logger"
     assert record["message"] == "something happened"
     assert "timestamp" in record
+
+
+def test_timestamp_is_compact_utc_format(capsys):
+    configure_logging("INFO")
+
+    logging.getLogger("test.logger.timestamp").warning("something happened")
+
+    captured = capsys.readouterr()
+    line = captured.err.strip() or captured.out.strip()
+    record = json.loads(line)
+
+    assert re.fullmatch(r"\d{6} \d{2}:\d{2}:\d{2}", record["timestamp"])
 
 
 def test_log_level_env_var_overrides_default(monkeypatch, capsys):

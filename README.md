@@ -77,6 +77,25 @@ overriding whatever `.env` sets for local development — so the same
 for both `uvicorn` and `docker compose up` without editing anything when
 switching between them.
 
+## Operating assumptions
+
+- **Reverse proxy headers.** The service assumes it sits behind a
+  reverse proxy that sets `X-Forwarded-For` and `X-Real-IP` on every
+  request it forwards (e.g. nginx's `proxy_set_header X-Forwarded-For
+  $proxy_add_x_forwarded_for;` and `proxy_set_header X-Real-IP
+  $remote_addr;`). `src/api/webhooks.py`'s `_source_ip()` already
+  prefers `X-Forwarded-For` when present, falling back to the raw
+  connecting socket address otherwise. Without those headers set, the
+  Discourse webhook's per-source-IP rate limiting degrades to a single
+  shared bucket for every caller behind the proxy. If the service is
+  also reachable directly (bypassing the proxy), a caller could forge
+  its own `X-Forwarded-For` to dodge that rate limit — this does not
+  allow forging a signature or bypassing authorization, only evading
+  the rate limit, but the proxy should be the only path in.
+- **Log timestamps are UTC.** Every timestamp the service logs — the
+  stdout JSON application log and the SQLite audit log alike — is UTC,
+  regardless of the host's local timezone.
+
 ## Manual testing
 
 ### Set up a development Keycloak instance locally

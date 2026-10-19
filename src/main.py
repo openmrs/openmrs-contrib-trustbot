@@ -19,6 +19,7 @@ import os
 from fastapi import FastAPI, Request
 from slack_bolt.adapter.fastapi import SlackRequestHandler
 
+from src.access_log import register_access_log_middleware, silence_uvicorn_access_log
 from src.api import admin, health, webhooks
 from src.audit.db import get_connection
 from src.config import load_config
@@ -32,6 +33,9 @@ config = load_config()
 configure_logging(config.logging.level)
 
 app = FastAPI(title="OpenMRS Trust Bot")
+
+silence_uvicorn_access_log()
+register_access_log_middleware(app)
 
 app.include_router(health.router)
 

@@ -23,3 +23,17 @@ services:
       # reaching services (e.g. a local dev Keycloak) running on the
       # host itself rather than in a container.
       - "host.docker.internal:host-gateway"
+    logging:
+      # Docker's json-file driver has no default size cap -- without
+      # this, log files grow unbounded on disk. Caps total on-disk log
+      # size per container at 50MB (5 files x 10MB, oldest rotated out).
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health', timeout=2).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
