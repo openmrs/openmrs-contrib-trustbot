@@ -25,7 +25,7 @@ See also [CLAUDE.md](CLAUDE.md) for AI-assistant context on this codebase.
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/health` | Health check (Docker/monitoring) |
-| `POST` | `/slack/commands` | Slack slash commands — `/trust`, `/trust-revoke`, `/trust-status` |
+| `POST` | `/slack/commands` | Slack slash commands — `/trust`, `/trust-revoke`, `/trust-status`, `/trust-activity` |
 | `POST` | `/webhook/discourse` | Native Discourse webhooks and Discourse Workflow HTTP actions (HMAC-signed; see [Manual testing](#manual-testing)) |
 | `POST` | `/admin/log-level` | Change the running log level at runtime (see [Change the log level at runtime](#change-the-log-level-at-runtime)) |
 
@@ -319,8 +319,8 @@ which should show `dry_run` rather than `success`. Set `DRY_RUN=false`
 
 ## Status
 
-The rules engine core, the Slack `/trust`/`/trust-revoke`/`/trust-status`
-commands, the Discourse `webhook`/`workflow` triggers, the audit log,
+The rules engine core, the Slack `/trust`/`/trust-revoke`/`/trust-status`/
+`/trust-activity` commands, the Discourse `webhook`/`workflow` triggers, the audit log,
 rate limiting, the admin log-level API, dry-run mode, and DEBUG-level
 logging are all implemented and tested — every item in the project
 spec's Functional and Security Requirements checklists is now built. See

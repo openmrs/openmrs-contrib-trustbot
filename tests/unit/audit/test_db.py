@@ -2,7 +2,7 @@ import threading
 
 import pytest
 
-from src.audit.db import get_connection, get_recent_events, record_event
+from src.audit.db import get_connection, get_recent_activity, get_recent_events, record_event
 
 
 @pytest.fixture
@@ -125,6 +125,53 @@ def test_record_event_accepts_dry_run_status(conn):
 
     row = conn.execute("SELECT status FROM audit_log").fetchone()
     assert row == ("dry_run",)
+
+
+def test_get_recent_activity_returns_rows_across_all_users_newest_first(conn):
+    for openmrs_id, action_detail in [
+        ("jdoe", "first"),
+        ("other-user", "second"),
+        ("jdoe", "third"),
+    ]:
+        record_event(
+            conn,
+            openmrs_id=openmrs_id,
+            trigger="slack_trust_command",
+            trigger_src="alice",
+            rule_name="rule",
+            action="keycloak_add_groups",
+            action_detail=action_detail,
+            status="success",
+            detail=None,
+        )
+
+    activity = get_recent_activity(conn, limit=10)
+
+    assert [a["action_detail"] for a in activity] == ["third", "second", "first"]
+    assert [a["openmrs_id"] for a in activity] == ["jdoe", "other-user", "jdoe"]
+
+
+def test_get_recent_activity_respects_limit(conn):
+    for i in range(5):
+        record_event(
+            conn,
+            openmrs_id=f"user{i}",
+            trigger="slack_trust_command",
+            trigger_src="alice",
+            rule_name="rule",
+            action="keycloak_add_groups",
+            action_detail=None,
+            status="success",
+            detail=None,
+        )
+
+    activity = get_recent_activity(conn, limit=2)
+
+    assert len(activity) == 2
+
+
+def test_get_recent_activity_returns_empty_list_when_no_rows(conn):
+    assert get_recent_activity(conn, limit=10) == []
 
 
 def test_record_event_rejects_unknown_status(conn):

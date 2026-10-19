@@ -105,6 +105,7 @@ slack_app = create_slack_app(
     audit_conn=audit_conn,
     rate_limiter=slack_commands_rate_limiter,
     dry_run=dry_run,
+    default_log_length=config.slack.default_log_length,
 )
 app.state.slack_app = slack_app
 _slack_handler = SlackRequestHandler(slack_app)

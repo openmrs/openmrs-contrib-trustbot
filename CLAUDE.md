@@ -10,8 +10,9 @@ community access (JIRA, Confluence via Keycloak groups) based on:
 - **Discourse webhooks/Workflows** — automatic, named triggers declared
   in `rules.yaml` (e.g. a `"trusted"` Discourse Workflow, or a native
   `user_promoted` webhook event)
-- **Slack slash commands** (`/trust`, `/trust-revoke`, `/trust-status`) — manual,
-  human-in-the-loop, restricted to a designated private Slack channel
+- **Slack slash commands** (`/trust`, `/trust-revoke`, `/trust-status`,
+  `/trust-activity`) — manual, human-in-the-loop, restricted to a
+  designated private Slack channel
 
 It is built around a generic, declarative **rules engine**: rules in
 `rules.yaml` map triggers to actions (IFTTT-style). The engine core must
@@ -93,15 +94,19 @@ pytest
 
 ## Current state
 
-The rules engine core, the Slack `/trust`, `/trust-revoke`, and `/trust-status`
-commands, the `keycloak_add_groups` / `keycloak_remove_groups` actions, the
+The rules engine core, the Slack `/trust`, `/trust-revoke`,
+`/trust-status`, and `/trust-activity` commands, the
+`keycloak_add_groups` / `keycloak_remove_groups` actions, the
 Discourse webhook/workflow triggers, and the audit log are implemented
 and tested (see `openspec/changes/archive/`) — `/trust <openmrs-id>` and
 `/trust-revoke <openmrs-id>` in the configured Slack channel grant/revoke
 Keycloak group access end-to-end, `/trust-status <openmrs-id>` reports
 current Keycloak groups, Discourse trust level, and recent audit history
 (read-only — it never reaches the rules engine, and degrades gracefully
-per-section if one data source is unavailable), and `POST
+per-section if one data source is unavailable), `/trust-activity [<n>]`
+reports the last `n` (default `slack.default_log_length`, capped at 50)
+`audit_log` rows across all users as human-readable lines (also
+read-only, never reaches the rules engine), and `POST
 /webhook/discourse` handles two distinct Discourse delivery mechanisms,
 dispatched by rule data rather than hardcoded in service config:
 `type: workflow, name: "<workflow-name>"` for a Discourse Workflow's
@@ -129,9 +134,9 @@ is idempotent, so re-processing a replayed request is harmless; see
 `openspec/changes/archive/*-restructure-discourse-triggers/design.md`).
 Matching on anything beyond a trigger's `type`+`name` (e.g. payload
 content, a future `condition` expression) is explicitly deferred. The
-Discourse webhook and all three Slack commands are rate-limited
+Discourse webhook and all four Slack commands are rate-limited
 (in-memory, per-source-IP for the webhook, shared per-Slack-user-ID
-across `/trust`/`/trust-revoke`/`/trust-status`) via
+across `/trust`/`/trust-revoke`/`/trust-status`/`/trust-activity`) via
 `src/ratelimit.py: RateLimiter`, with violations and the existing
 channel-restriction rejections logged at WARNING level through a minimal
 JSON logging setup (`src/logging_setup.py`, `LOG_LEVEL` env var). The
@@ -140,7 +145,7 @@ admin log-level API (`POST /admin/log-level`, bearer-token protected via
 the default) changes the running process's log level at runtime without
 a restart, reusing the same `src/logging_setup.py` logger. Dry-run mode
 (`config.yaml`'s `dry_run`, overridable via `DRY_RUN`) makes every
-trigger path — the Discourse webhook and all three Slack commands —
+trigger path — the Discourse webhook and all four Slack commands —
 evaluate and audit-log rule actions as usual (status `dry_run`) without
 making any actual Keycloak change; `/trust`/`/trust-revoke` responses disclose
 this explicitly when active. DEBUG level (toggled via the admin endpoint

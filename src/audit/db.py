@@ -91,3 +91,23 @@ def get_recent_events(conn: sqlite3.Connection, openmrs_id: str, *, limit: int =
     )
     columns = [description[0] for description in cursor.description]
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+
+def get_recent_activity(conn: sqlite3.Connection, *, limit: int = 10) -> list[dict]:
+    """Return the most recent audit_log rows across all OpenMRS IDs, newest first.
+
+    Unlike get_recent_events(), this is not filtered to one user -- it's
+    the service-wide activity feed for /trust-activity. Read-only; does
+    not affect the append-only write path above.
+    """
+    cursor = conn.execute(
+        """
+        SELECT timestamp, openmrs_id, trigger, trigger_src, rule_name, action, action_detail, status, detail
+        FROM audit_log
+        ORDER BY id DESC
+        LIMIT ?
+        """,
+        (limit,),
+    )
+    columns = [description[0] for description in cursor.description]
+    return [dict(zip(columns, row)) for row in cursor.fetchall()]

@@ -183,6 +183,7 @@ If a rule fires but produces no change (e.g. `/trust` is issued for a user who a
   - `/trust <openmrs-id>` — grant community edit access
   - `/trust-revoke <openmrs-id>` — revoke community edit access
   - `/trust-status <openmrs-id>` — display current trust state (see §5.3.1)
+  - `/trust-activity [<n>]` — list recent trustbot activity (see §5.3.2)
 - [ ] Validate the source channel ID matches the configured designated private channel; reject commands from any other channel with no action taken
 - [ ] Trigger rule evaluation as a `slack_trust_command` or `slack_revoke_command` event for the target OpenMRS ID
 - [ ] Respond in Slack with a clear confirmation or descriptive error message for every command
@@ -196,6 +197,17 @@ The `/trust-status <openmrs-id>` command returns a formatted Slack response cont
 - Current Keycloak group memberships (relevant groups only, e.g. `jira-users`, `confluence-users`)
 - Current Discourse trust level
 - Summary of recent audit log entries for that user (e.g. last 5 events: action, trigger, timestamp, outcome)
+
+This command is read-only and does not trigger rule evaluation.
+
+#### 5.3.2 `/trust-activity` Response
+
+The `/trust-activity [<n>]` command returns the `n` most recent
+`audit_log` rows across all users, newest first, each rendered as a
+short human-readable line (e.g. "Bob issued `/trust foobar`" or
+"Discourse trusted foobar") rather than raw data. `n` defaults to
+`slack.default_log_length` (`config.yaml`) when omitted, is
+overridable per-invocation, and is capped at a hardcoded maximum of 50.
 
 This command is read-only and does not trigger rule evaluation.
 

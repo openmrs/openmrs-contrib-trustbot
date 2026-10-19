@@ -43,3 +43,25 @@ def test_load_config_uses_config_path_env_var(monkeypatch):
     config = load_config()
 
     assert config.keycloak.realm == "OpenMRS"
+
+
+def test_slack_default_log_length_defaults_to_10_when_absent(tmp_path):
+    raw = yaml.safe_load(EXAMPLE_CONFIG.read_text())
+    raw["slack"].pop("default_log_length", None)
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(yaml.safe_dump(raw))
+
+    config = load_config(config_path)
+
+    assert config.slack.default_log_length == 10
+
+
+def test_slack_default_log_length_respects_explicit_value(tmp_path):
+    raw = yaml.safe_load(EXAMPLE_CONFIG.read_text())
+    raw["slack"]["default_log_length"] = 25
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(yaml.safe_dump(raw))
+
+    config = load_config(config_path)
+
+    assert config.slack.default_log_length == 25

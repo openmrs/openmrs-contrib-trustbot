@@ -1,5 +1,6 @@
-"""/trust, /trust-revoke, /trust-status share one rate limit via create_slack_app()'s
-global slack-bolt middleware (see add-rate-limiting design.md).
+"""/trust, /trust-revoke, /trust-status, and /trust-activity share one rate
+limit via create_slack_app()'s global slack-bolt middleware (see
+add-rate-limiting design.md).
 
 Exercises the registered middleware function directly (app._middleware_list[0].func)
 with constructed `body`/`next`/`ack` stubs, the same way slack-bolt's dispatch()
@@ -57,9 +58,9 @@ def invoke(middleware, *, user_id, command):
 
 
 def test_commands_within_limit_succeed_normally(tmp_path):
-    middleware = make_middleware(tmp_path, max_requests=3)
+    middleware = make_middleware(tmp_path, max_requests=4)
 
-    for command in ("/trust", "/trust-revoke", "/trust-status"):
+    for command in ("/trust", "/trust-revoke", "/trust-status", "/trust-activity"):
         acked, next_called = invoke(middleware, user_id="U1", command=command)
         assert next_called is True
         assert acked == {}
@@ -76,15 +77,16 @@ def test_exceeding_limit_produces_rate_limited_message_and_skips_next(tmp_path):
     assert acked == {"text": RATE_LIMITED_MESSAGE}
 
 
-def test_limit_is_shared_across_trust_revoke_and_trust_status(tmp_path):
-    middleware = make_middleware(tmp_path, max_requests=2)
+def test_limit_is_shared_across_all_four_commands(tmp_path):
+    middleware = make_middleware(tmp_path, max_requests=3)
 
     first_acked, first_next = invoke(middleware, user_id="U1", command="/trust")
     second_acked, second_next = invoke(middleware, user_id="U1", command="/trust-revoke")
     third_acked, third_next = invoke(middleware, user_id="U1", command="/trust-status")
+    fourth_acked, fourth_next = invoke(middleware, user_id="U1", command="/trust-activity")
 
-    assert (first_next, second_next, third_next) == (True, True, False)
-    assert third_acked == {"text": RATE_LIMITED_MESSAGE}
+    assert (first_next, second_next, third_next, fourth_next) == (True, True, True, False)
+    assert fourth_acked == {"text": RATE_LIMITED_MESSAGE}
 
 
 def test_different_users_have_independent_counters(tmp_path):

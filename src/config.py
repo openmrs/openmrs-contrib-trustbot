@@ -34,6 +34,7 @@ class KeycloakConfig(BaseModel):
 
 class SlackConfig(BaseModel):
     trusted_channel_id: str
+    default_log_length: int = 10
 
 
 class RateLimitRule(BaseModel):
