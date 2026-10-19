@@ -32,7 +32,9 @@ counter across all three commands, and enforce the configured limit
 A Slack user who has exceeded the configured limit SHALL have their
 command rejected before its normal authorization checks, with a visible
 Slack response explaining they are rate limited — unlike the silent
-rejection used for an unauthorized-channel command.
+rejection used for an unauthorized-channel command. This rejection
+message is ephemeral, visible only to the rate-limited user — see the
+`slack-response-visibility` capability.
 
 #### Scenario: Slack user exceeds the configured limit
 - **WHEN** a Slack user has already issued `max_requests` commands within

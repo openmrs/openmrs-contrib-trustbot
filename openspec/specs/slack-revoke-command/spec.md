@@ -46,9 +46,11 @@ using the given OpenMRS ID as the target.
 ### Requirement: The caller receives a clear response for every valid command
 The system SHALL respond in Slack with a clear outcome message for every
 `/trust-revoke` command that passes authorization checks (signature +
-channel). If dry-run mode is active, the response SHALL clearly state
-that no real change was made, rather than using the normal
-success/no-change wording.
+channel). This response is posted in-channel, visible to every member of
+the trusted channel, not only the issuing user — see the
+`slack-response-visibility` capability. If dry-run mode is active, the
+response SHALL clearly state that no real change was made, rather than
+using the normal success/no-change wording.
 
 #### Scenario: Access revoked
 - **WHEN** the triggered rule's action successfully removes the target

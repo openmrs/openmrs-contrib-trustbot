@@ -45,8 +45,11 @@ OpenMRS ID as the target.
 ### Requirement: The caller receives a clear response for every valid command
 The system SHALL respond in Slack with a clear outcome message for every
 `/trust` command that passes authorization checks (signature + channel).
-If dry-run mode is active, the response SHALL clearly state that no real
-change was made, rather than using the normal success/no-change wording.
+This response is posted in-channel, visible to every member of the
+trusted channel, not only the issuing user — see the
+`slack-response-visibility` capability. If dry-run mode is active, the
+response SHALL clearly state that no real change was made, rather than
+using the normal success/no-change wording.
 
 #### Scenario: Access granted
 - **WHEN** the triggered rule's action successfully adds the target user to
