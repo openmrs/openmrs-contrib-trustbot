@@ -241,6 +241,22 @@ def _handle_trust_status(command: dict, context: SlackContext, respond) -> None:
         recent_events = None
         events_error = str(exc)
 
+    degraded = [
+        section
+        for section, error in (
+            ("groups", groups_error),
+            ("trust_level", trust_level_error),
+            ("recent_events", events_error),
+        )
+        if error is not None
+    ]
+    logger.info(
+        "trust-status checked: user=%s openmrs_id=%s degraded=%s",
+        command.get("user_name"),
+        openmrs_id,
+        degraded or "none",
+    )
+
     respond(
         _format_trust_status_response(
             openmrs_id,

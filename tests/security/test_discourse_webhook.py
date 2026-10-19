@@ -159,13 +159,23 @@ def test_native_webhook_invalid_signature_is_rejected_before_any_processing(app_
 
 
 def test_native_webhook_valid_signature_with_unsupported_event_name_takes_no_action(
-    app_client, mock_keycloak_client
+    app_client, mock_keycloak_client, caplog
 ):
     body = json.dumps({"user": {"username": "jdoe"}}).encode()
 
-    response = post_native_webhook(
-        app_client, body, signature=sign(body, WEBHOOK_SECRET), event_name="some_unsupported_event"
-    )
+    with caplog.at_level("INFO"):
+        response = post_native_webhook(
+            app_client,
+            body,
+            signature=sign(body, WEBHOOK_SECRET),
+            event_name="some_unsupported_event",
+        )
+
+        # No "no rule matched" INFO line either: build_event() returns None
+        # for an unregistered event name before evaluate() is ever called,
+        # so this stays exactly as silent as it was before this change --
+        # no OpenMRS ID was ever resolved, so there's nothing to report.
+        assert not any("no rule matched" in r.message for r in caplog.records)
 
     assert response.status_code == 200
     mock_keycloak_client.add_user_to_groups.assert_not_called()

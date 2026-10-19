@@ -73,6 +73,13 @@ def evaluate(rule_set: RuleSet, event: TriggerEvent) -> list[Rule]:
         logger.debug("matched rules: %s", [rule.name for rule in matched])
     else:
         logger.debug("no rules matched")
+        logger.info(
+            "no rule matched: trigger=%s name=%s source=%s openmrs_id=%s",
+            event.type,
+            event.name,
+            event.source,
+            event.openmrs_id,
+        )
 
     return matched
 
@@ -108,6 +115,16 @@ def execute_rule(
 
         logger.debug(
             "action result: rule=%r type=%s status=%s detail=%s",
+            rule.name,
+            action.type,
+            result.status,
+            result.detail,
+        )
+        logger.info(
+            "action taken: trigger=%s source=%s openmrs_id=%s rule=%r action=%s status=%s detail=%s",
+            event.type,
+            event.source,
+            event.openmrs_id,
             rule.name,
             action.type,
             result.status,

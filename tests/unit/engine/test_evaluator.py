@@ -81,6 +81,25 @@ def test_evaluate_logs_no_match_at_debug(caplog):
     assert any("no rules matched" in r.message for r in caplog.records)
 
 
+def test_evaluate_logs_no_match_at_info_for_a_resolved_event(caplog):
+    rule_set = RuleSet(rules=[])
+    event = TriggerEvent(
+        type="workflow", name="trusted", openmrs_id="jdoe", source="https://talk.openmrs.org"
+    )
+
+    with caplog.at_level("INFO"):
+        evaluator.evaluate(rule_set, event)
+
+        info_records = [r for r in caplog.records if r.levelname == "INFO"]
+        assert len(info_records) == 1
+        message = info_records[0].message
+        assert "no rule matched" in message
+        assert "workflow" in message
+        assert "trusted" in message
+        assert "jdoe" in message
+        assert "talk.openmrs.org" in message
+
+
 def test_execute_rule_dispatches_to_registered_executor_and_audits(tmp_path, monkeypatch):
     calls = []
 
@@ -185,6 +204,84 @@ def test_execute_rule_logs_failure_result_at_debug(tmp_path, monkeypatch, caplog
 
     messages = [r.message for r in caplog.records]
     assert any("action result" in m and "failure" in m and "boom" in m for m in messages)
+
+
+def test_execute_rule_logs_success_outcome_at_info(tmp_path, monkeypatch, caplog):
+    def fake_executor(action, event, dry_run):
+        return ActionResult(status="success", detail="Added 'jdoe' to: jira-users")
+
+    monkeypatch.setitem(evaluator.ACTION_EXECUTORS, "keycloak_add_groups", fake_executor)
+
+    rule = make_rule("grant", ["slack_trust_command"])
+    event = TriggerEvent(type="slack_trust_command", openmrs_id="jdoe", source="alice")
+    conn = get_connection(str(tmp_path / "audit.db"))
+
+    with caplog.at_level("INFO"):
+        evaluator.execute_rule(rule, event, conn=conn)
+
+        info_records = [r for r in caplog.records if r.levelname == "INFO"]
+        assert len(info_records) == 1
+        message = info_records[0].message
+        assert "alice" in message
+        assert "jdoe" in message
+        assert "grant" in message
+        assert "keycloak_add_groups" in message
+        assert "success" in message
+
+
+def test_execute_rule_logs_no_change_outcome_at_info(tmp_path, monkeypatch, caplog):
+    def fake_executor(action, event, dry_run):
+        return ActionResult(status="no_change", detail="'jdoe' is already a member of: jira-users")
+
+    monkeypatch.setitem(evaluator.ACTION_EXECUTORS, "keycloak_add_groups", fake_executor)
+
+    rule = make_rule("grant", ["slack_trust_command"])
+    event = TriggerEvent(type="slack_trust_command", openmrs_id="jdoe", source="alice")
+    conn = get_connection(str(tmp_path / "audit.db"))
+
+    with caplog.at_level("INFO"):
+        evaluator.execute_rule(rule, event, conn=conn)
+
+        info_records = [r for r in caplog.records if r.levelname == "INFO"]
+        assert len(info_records) == 1
+        assert "no_change" in info_records[0].message
+
+
+def test_execute_rule_logs_dry_run_outcome_at_info(tmp_path, monkeypatch, caplog):
+    def fake_executor(action, event, dry_run):
+        return ActionResult(status="dry_run", detail="Would add 'jdoe' to: jira-users")
+
+    monkeypatch.setitem(evaluator.ACTION_EXECUTORS, "keycloak_add_groups", fake_executor)
+
+    rule = make_rule("grant", ["slack_trust_command"])
+    event = TriggerEvent(type="slack_trust_command", openmrs_id="jdoe", source="alice")
+    conn = get_connection(str(tmp_path / "audit.db"))
+
+    with caplog.at_level("INFO"):
+        evaluator.execute_rule(rule, event, conn=conn, dry_run=True)
+
+        info_records = [r for r in caplog.records if r.levelname == "INFO"]
+        assert len(info_records) == 1
+        assert "dry_run" in info_records[0].message
+
+
+def test_execute_rule_logs_failure_outcome_at_info(tmp_path, monkeypatch, caplog):
+    def broken_executor(action, event, dry_run):
+        raise RuntimeError("boom")
+
+    monkeypatch.setitem(evaluator.ACTION_EXECUTORS, "keycloak_add_groups", broken_executor)
+
+    rule = make_rule("grant", ["slack_trust_command"])
+    event = TriggerEvent(type="slack_trust_command", openmrs_id="jdoe", source="alice")
+    conn = get_connection(str(tmp_path / "audit.db"))
+
+    with caplog.at_level("INFO"):
+        evaluator.execute_rule(rule, event, conn=conn)
+
+        info_records = [r for r in caplog.records if r.levelname == "INFO"]
+        assert len(info_records) == 1
+        assert "failure" in info_records[0].message
+        assert "boom" in info_records[0].message
 
 
 def test_execute_rule_unknown_action_type_is_recorded_as_failure(tmp_path):

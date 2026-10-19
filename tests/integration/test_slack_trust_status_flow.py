@@ -148,6 +148,50 @@ def test_wrong_channel_produces_no_response(context):
     discourse_client.get_trust_level.assert_not_called()
 
 
+def test_full_success_logs_outcome_at_info(context, caplog):
+    seed_audit_row(context.audit_conn)
+
+    keycloak_client = MagicMock()
+    keycloak_client.get_user_groups.return_value = ["jira-users"]
+    keycloak_integration.set_client(keycloak_client)
+
+    discourse_client = MagicMock()
+    discourse_client.get_trust_level.return_value = 2
+    discourse_integration.set_client(discourse_client)
+
+    with caplog.at_level("INFO"):
+        _handle_trust_status(make_command(), context, lambda *_: None)
+
+        info_records = [r for r in caplog.records if r.levelname == "INFO"]
+        assert len(info_records) == 1
+        message = info_records[0].message
+        assert "alice" in message
+        assert "jdoe" in message
+        assert "none" in message  # no degraded sections
+
+
+def test_degraded_section_logs_outcome_at_info(context, caplog):
+    seed_audit_row(context.audit_conn)
+
+    keycloak_client = MagicMock()
+    keycloak_client.get_user_groups.side_effect = RuntimeError("connection refused")
+    keycloak_integration.set_client(keycloak_client)
+
+    discourse_client = MagicMock()
+    discourse_client.get_trust_level.return_value = 3
+    discourse_integration.set_client(discourse_client)
+
+    with caplog.at_level("INFO"):
+        _handle_trust_status(make_command(), context, lambda *_: None)
+
+        info_records = [r for r in caplog.records if r.levelname == "INFO"]
+        assert len(info_records) == 1
+        message = info_records[0].message
+        assert "alice" in message
+        assert "jdoe" in message
+        assert "groups" in message
+
+
 def test_wrong_channel_logs_warning(context, caplog):
     keycloak_client = MagicMock()
     keycloak_integration.set_client(keycloak_client)
