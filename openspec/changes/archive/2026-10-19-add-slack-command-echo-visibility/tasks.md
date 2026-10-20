@@ -56,11 +56,12 @@
 
 ## Workflow follow-up
 
-- Confirm live, against a real Slack workspace, that an `ack()` call
+- [x] Confirm live, against a real Slack workspace, that an `ack()` call
   with no text and `response_type: "in_channel"` reveals the command
   invocation without posting an extra empty bot message, per this
   project's practice of live-verifying platform-behavior assumptions
-  before relying on them in production.
-- Archive this change once implementation and verification are complete.
-- Consider releasing as a maintenance version (e.g. v1.5.1), per the
-  user's own suggested framing, once deployed and confirmed.
+  before relying on them in production. Confirmed by the user.
+- [x] Archive this change once implementation and verification are complete.
+- [x] Consider releasing as a maintenance version (e.g. v1.5.1), per the
+  user's own suggested framing, once deployed and confirmed. Tagged
+  `v1.5.1`.
