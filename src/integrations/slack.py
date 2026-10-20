@@ -93,26 +93,45 @@ def create_slack_app(
 
     @app.command("/trust")
     def handle_trust_command(ack, command, respond) -> None:
-        # Ack immediately: Slack requires a response within 3 seconds, and
-        # per the "silent rejection" design decision this ack (with no
-        # text) is what satisfies that for an unauthorized-channel command
-        # without showing the channel anything.
-        ack()
+        # Ack immediately: Slack requires a response within 3 seconds. The
+        # immediate ack's own response_type (not the later respond() call
+        # below) controls whether Slack shows the channel the invoking
+        # command itself, so it must be set here, not just downstream --
+        # see the add-slack-command-echo-visibility design.md.
+        event = build_trust_event(command, trusted_channel_id=context.trusted_channel_id)
+        if event is not None and event.openmrs_id:
+            ack(response_type="in_channel")
+        else:
+            ack()  # wrong channel or missing argument: silent rejection, see above
         _handle_trust(command, context, respond)
 
     @app.command("/trust-revoke")
     def handle_revoke_command(ack, command, respond) -> None:
-        ack()  # same silent-rejection rationale as /trust, see above
+        event = build_revoke_event(command, trusted_channel_id=context.trusted_channel_id)
+        if event is not None and event.openmrs_id:
+            ack(response_type="in_channel")
+        else:
+            ack()  # same silent-rejection rationale as /trust, see above
         _handle_revoke(command, context, respond)
 
     @app.command("/trust-status")
     def handle_trust_status_command(ack, command, respond) -> None:
-        ack()  # same silent-rejection rationale as /trust, see above
+        channel_ok = command.get("channel_id") == context.trusted_channel_id
+        argument_ok = bool((command.get("text") or "").strip())
+        if channel_ok and argument_ok:
+            ack(response_type="in_channel")
+        else:
+            ack()  # wrong channel or missing argument: silent rejection, see above
         _handle_trust_status(command, context, respond)
 
     @app.command("/trust-activity")
     def handle_trust_activity_command(ack, command, respond) -> None:
-        ack()  # same silent-rejection rationale as /trust, see above
+        channel_ok = command.get("channel_id") == context.trusted_channel_id
+        argument_ok = _trust_activity_argument_is_valid((command.get("text") or "").strip())
+        if channel_ok and argument_ok:
+            ack(response_type="in_channel")
+        else:
+            ack()  # wrong channel or invalid argument: silent rejection, see above
         _handle_trust_activity(command, context, respond)
 
     return app
@@ -326,6 +345,11 @@ def _format_trust_status_response(
     return "\n".join(lines)
 
 
+def _trust_activity_argument_is_valid(text: str) -> bool:
+    """Return True if `text` is a valid `/trust-activity` argument (blank, or a positive whole number)."""
+    return not text or (text.isdigit() and int(text) > 0)
+
+
 def _handle_trust_activity(command: dict, context: SlackContext, respond) -> None:
     # No TriggerEvent here (unlike /trust and /trust-revoke): this command
     # never reaches the rules engine, so the channel check is done inline --
@@ -339,13 +363,10 @@ def _handle_trust_activity(command: dict, context: SlackContext, respond) -> Non
         return  # wrong channel: silent rejection, no response
 
     text = (command.get("text") or "").strip()
-    if text:
-        if not text.isdigit() or int(text) <= 0:
-            respond("Usage: `/trust-activity [<n>]` (n must be a positive whole number)")
-            return
-        limit = int(text)
-    else:
-        limit = context.default_log_length
+    if not _trust_activity_argument_is_valid(text):
+        respond("Usage: `/trust-activity [<n>]` (n must be a positive whole number)")
+        return
+    limit = int(text) if text else context.default_log_length
 
     limit = min(limit, MAX_ACTIVITY_LENGTH)
 
