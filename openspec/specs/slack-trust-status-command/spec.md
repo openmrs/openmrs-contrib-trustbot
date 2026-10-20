@@ -49,7 +49,9 @@ in Slack with: the OpenMRS ID, its current Keycloak group memberships
 level, and a summary of its most recent audit log entries (action,
 trigger, timestamp, and outcome). This response is posted in-channel,
 visible to every member of the trusted channel, not only the issuing
-user — see the `slack-response-visibility` capability.
+user — see the `slack-response-visibility` capability, whose
+immediate-acknowledgment requirement also makes the command invocation
+itself visible to the channel for every such command.
 
 #### Scenario: Status requested for an existing user
 - **WHEN** a `/trust-status <openmrs-id>` command passes authorization
@@ -83,7 +85,9 @@ If the target OpenMRS ID does not exist in Keycloak, the system SHALL
 respond with a message identifying that the user was not found, rather
 than an empty or misleading status. This response is posted in-channel,
 visible to every member of the trusted channel, not only the issuing
-user — see the `slack-response-visibility` capability.
+user — see the `slack-response-visibility` capability, whose
+immediate-acknowledgment requirement also makes the command invocation
+itself visible to the channel for every such command.
 
 #### Scenario: Target OpenMRS ID does not exist
 - **WHEN** a `/trust-status <openmrs-id>` command passes authorization
