@@ -32,7 +32,7 @@ discourse:
 # Keycloak integration
 # -----------------------------------------------------------------------------
 keycloak:
-  base_url: "https://id-new.openmrs.org"
+  base_url: "https://id.openmrs.org"
   realm: "OpenMRS"
 
   retry:
