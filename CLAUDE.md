@@ -45,7 +45,7 @@ but the spec itself is authoritative.
 src/config.py       loads config.yaml once at startup (ServiceConfig, Pydantic)
 src/engine/         rules engine core: models (Pydantic), loader (rules.yaml), evaluator
 src/triggers/       one module per trigger type (webhook, workflow, slack_trust_command, ...)
-src/actions/        one module per action type (keycloak_add_groups, keycloak_remove_groups)
+src/actions/        one module per action type (keycloak_add_groups, keycloak_remove_groups, slack_notify)
 src/integrations/   external API clients (Keycloak, Discourse, Slack)
 src/audit/          SQLite audit log (schema.sql + db.py)
 src/api/            FastAPI routers (health, webhooks, admin)
@@ -161,3 +161,22 @@ the already-curated `TriggerEvent` is); Slack's deprecated `token`
 field is redacted the same way headers are. Every item in the spec's
 Functional and Security Requirements checklists (§5–§6) is now
 implemented.
+
+The immediate Slack acknowledgment for all four slash commands (not
+just the eventual result) is now visible in-channel whenever the
+command passes its channel-restriction and argument check — Slack only
+reveals a command's own invocation when the *immediate* ack carries
+`response_type: "in_channel"`, not when a later, delayed response to
+`response_url` does; a rate-limited, wrong-channel, or missing/invalid-argument command's
+ack remains ephemeral, exactly as before. A new
+`slack_notify` action type lets any rule post a templated message to
+Slack (`message:` with `${openmrs_id}` interpolation, optional
+`channel:` defaulting to `slack.trusted_channel_id`) via a standalone
+Slack Web API client (`src/integrations/slack_notify.py`, independent
+of the slash-command `App`) — added as a second action on the two
+Discourse-triggered grant/revoke rules in `config/rules.example.yaml`.
+Unlike the Keycloak actions, it has no `no_change` outcome (a
+notification can't be no-op'd, only sent, simulated under dry-run, or
+failed); a failed post whose Slack error indicates a permission or
+channel-membership problem is logged with a troubleshooting hint
+naming the channel.

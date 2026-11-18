@@ -179,6 +179,9 @@ rules:
           - jira-users
           - jira-trunk-developer
           - confluence-users
+      # slack_notify: see "slack_notify action" below
+      - type: slack_notify
+        message: "${openmrs_id} trusted by OpenMRS Talk"
 
   # ---------------------------------------------------------------------------
   # Alternative: the same grant via Discourse's native `user_promoted`
@@ -319,6 +322,30 @@ request with a clear "missing username" error rather than silently do
 nothing, and will start working automatically once Discourse adds the
 field.) A `type: workflow` payload just needs a top-level `username`
 field — the Workflow author controls the rest of the shape.
+
+### `slack_notify` action: optional `channel`, templated `message`
+`type: slack_notify` posts a message to Slack when a rule fires.
+`message` is required and supports `${openmrs_id}`, interpolated from
+the firing event's target OpenMRS ID — e.g. `message: "${openmrs_id}
+trusted by OpenMRS Talk"`. An unrecognized placeholder (a typo) fails
+the action loudly rather than posting a broken message, consistent with
+this project's "fail loudly" convention.
+
+`channel` is optional and accepts either a Slack channel ID or a
+`#name`; when omitted, it defaults to `config.yaml`'s
+`slack.trusted_channel_id` (the same channel the slash commands are
+restricted to). An explicit `channel` lets a rule post somewhere else,
+e.g. `channel: "#community"` — but trustbot's bot user must already be
+a member of that channel (`chat:write` alone isn't enough; see
+README.md's Slack setup instructions), and inviting it into a
+non-trusted channel for this purpose does not expand which channel is
+authorized to issue slash commands — that remains governed solely by
+`slack.trusted_channel_id`.
+
+Unlike `keycloak_add_groups`/`keycloak_remove_groups`, `slack_notify`
+has no `no_change` outcome: a notification has no prior state to
+compare against, so its result is always `success`, `dry_run` (no
+Slack API call made), or `failure`.
 
 ### Sensitive data in YAML
 YAML files are committed to version control. They must never contain secrets.

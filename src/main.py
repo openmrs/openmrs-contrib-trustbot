@@ -25,6 +25,7 @@ from src.audit.db import get_connection
 from src.config import load_config
 from src.integrations import discourse as discourse_integration
 from src.integrations import keycloak as keycloak_integration
+from src.integrations import slack_notify as slack_notify_integration
 from src.integrations.slack import create_slack_app
 from src.logging_setup import configure_logging
 from src.ratelimit import RateLimiter
@@ -79,6 +80,11 @@ discourse_client = discourse_integration.build_client(
 )
 discourse_integration.set_client(discourse_client)
 app.state.discourse_client = discourse_client
+
+slack_notify_integration.set_client(
+    slack_notify_integration.build_client(os.environ["SLACK_BOT_TOKEN"])
+)
+slack_notify_integration.set_default_channel(config.slack.trusted_channel_id)
 
 discourse_webhook_rate_limiter = RateLimiter(
     max_requests=config.rate_limiting.discourse_webhook.max_requests,

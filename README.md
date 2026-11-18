@@ -132,6 +132,15 @@ setting up the Slack app.
 2. Copy its Channel ID
 3. Create Slack app
   * Disable Socket Mode
+  * Under OAuth & Permissions > Scopes > Bot Token Scopes, add `commands`
+    (required for the `/trust`, `/trust-revoke`, `/trust-status`, and
+    `/trust-activity` slash commands) and `chat:write` (required for the
+    `slack_notify` rules-engine action to post notifications)
+  * `chat:write` alone isn't enough to post to a channel other than the
+    one it's installed/used in by default — invite the bot into any
+    additional channel a `slack_notify` action's `channel:` field
+    references (e.g. `/invite @trustbot` in that channel), or posts
+    there will fail with `not_in_channel`
   * Add Slash Command for `/trust` with Request URL `https://example.ngrok-free.dev/slack/commands` (adding `/slack/commands` to URL from ngrok in terminal)
   * Set Usage Hint to `openmrs-id`
   * Copy Signing Secret from Basic Information section

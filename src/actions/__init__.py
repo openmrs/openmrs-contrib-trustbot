@@ -9,8 +9,9 @@ from __future__ import annotations
 
 
 def register_all() -> None:
-    from src.actions import keycloak
+    from src.actions import keycloak, slack_notify
     from src.engine.evaluator import register_action
 
     register_action("keycloak_add_groups", keycloak.add_groups)
     register_action("keycloak_remove_groups", keycloak.remove_groups)
+    register_action("slack_notify", slack_notify.notify)
