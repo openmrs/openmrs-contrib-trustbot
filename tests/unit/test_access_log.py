@@ -114,3 +114,45 @@ def test_runtime_level_change_via_admin_endpoint_takes_effect_on_next_request(
         if r.levelname == "DEBUG" and "/health" in r.message
     ]
     assert len(health_debug_records) == 1
+
+
+class TestTimestampUvicornErrorLog:
+    """Direct unit tests for src.access_log.timestamp_uvicorn_error_log().
+
+    Isolated from the app_client fixture above: this targets the
+    module-level "uvicorn" logger's handler, which the fixture's own app
+    construction doesn't touch (uvicorn only configures it when actually
+    served, not when merely imported -- see the function's docstring).
+    """
+
+    @pytest.fixture(autouse=True)
+    def reset_uvicorn_logger(self):
+        logger = logging.getLogger("uvicorn")
+        original_handlers = logger.handlers
+        yield
+        logger.handlers = original_handlers
+
+    def test_no_op_when_uvicorn_has_no_handler(self):
+        from src.access_log import timestamp_uvicorn_error_log
+
+        logging.getLogger("uvicorn").handlers = []
+
+        timestamp_uvicorn_error_log()  # must not raise
+
+        assert logging.getLogger("uvicorn").handlers == []
+
+    def test_adds_timestamp_prefix_when_handler_exists(self):
+        from src.access_log import timestamp_uvicorn_error_log
+
+        handler = logging.StreamHandler()
+        logging.getLogger("uvicorn").handlers = [handler]
+
+        timestamp_uvicorn_error_log()
+
+        record = logging.LogRecord(
+            "uvicorn.error", logging.INFO, __file__, 1, "Started server process [1]", None, None
+        )
+        formatted = handler.formatter.format(record)
+        assert formatted.endswith("| INFO:     Started server process [1]")
+        # e.g. "261118 03:28:39 | INFO:     Started server process [1]"
+        assert len(formatted.split(" | ", 1)[0]) == len("261118 03:28:39")

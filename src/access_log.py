@@ -18,18 +18,52 @@ from __future__ import annotations
 import logging
 
 from fastapi import FastAPI, Request
+from uvicorn.logging import DefaultFormatter
 
 logger = logging.getLogger(__name__)
+
+# Matches the compact timestamp format src/logging_setup.py's JsonFormatter
+# already uses for every application log line.
+_TIMESTAMP_FORMAT = "%y%m%d %H:%M:%S"
 
 
 def silence_uvicorn_access_log() -> None:
     """Remove uvicorn's own access-log handler so it never logs independently.
 
-    uvicorn.error (startup/shutdown/crash messages) is untouched.
+    uvicorn.error (startup/shutdown/crash messages) is untouched -- see
+    timestamp_uvicorn_error_log() for that one.
     """
     uvicorn_access = logging.getLogger("uvicorn.access")
     uvicorn_access.handlers = []
     uvicorn_access.propagate = False
+
+
+def timestamp_uvicorn_error_log() -> None:
+    """Add a timestamp prefix to uvicorn's own startup/shutdown/crash messages.
+
+    uvicorn.error has no handler of its own -- it propagates to the
+    "uvicorn" logger's handler, configured by uvicorn's CLI before this
+    app module is imported (see silence_uvicorn_access_log()'s docstring)
+    with no timestamp at all. This swaps in the same formatter class with
+    a leading `%(asctime)s |`, keeping uvicorn's own message text and
+    level prefix untouched.
+
+    A no-op if uvicorn hasn't configured that handler yet -- e.g. when
+    the app is only imported (every test, via TestClient) rather than
+    actually served by uvicorn, "uvicorn" has no handler at all and its
+    records propagate to the root logger's own (already timestamped)
+    handler instead.
+    """
+    handlers = logging.getLogger("uvicorn").handlers
+    if not handlers:
+        return
+    handlers[0].setFormatter(
+        DefaultFormatter(
+            fmt="%(asctime)s | %(levelprefix)s %(message)s",
+            datefmt=_TIMESTAMP_FORMAT,
+            use_colors=False,
+        )
+    )
 
 
 def register_access_log_middleware(app: FastAPI) -> None:

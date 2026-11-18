@@ -179,4 +179,9 @@ Unlike the Keycloak actions, it has no `no_change` outcome (a
 notification can't be no-op'd, only sent, simulated under dry-run, or
 failed); a failed post whose Slack error indicates a permission or
 channel-membership problem is logged with a troubleshooting hint
-naming the channel.
+naming the channel. uvicorn's own startup/shutdown/crash log lines
+(`uvicorn.error`, configured by uvicorn itself before this app module
+is even imported) now also carry the same compact timestamp format
+used everywhere else (`src/access_log.py: timestamp_uvicorn_error_log()`)
+— previously only `src/logging_setup.py`'s JSON-formatted application
+logs were timestamped.
